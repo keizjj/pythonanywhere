@@ -85,6 +85,7 @@
               <h4 class="text-xl font-semibold mb-4">{{ tarjeta.nombre | replace('_', ' ') }}</h4>
 
               {% if tarjeta.carpeta|lower == 'admin' %}
+                {# ── Tarjeta admin: solo el usuario admin puede abrirla ── #}
                 {% if current_user.username == 'admin' %}
                   <a href="{{ url_for('admin.index') }}" target="_blank">
                     <button>Abrir</button>
@@ -92,11 +93,20 @@
                 {% else %}
                   <div class="text-red-400 font-medium mt-2">Acceso restringido</div>
                 {% endif %}
+
+              {% elif tarjeta.carpeta|lower == 'chat' %}
+                {# ── Tarjeta chat: abre el blueprint de chat ── #}
+                <a href="{{ url_for('chat.index') }}">
+                  <button>Abrir</button>
+                </a>
+
               {% else %}
+                {# ── Tarjetas genéricas: ruta dinámica por carpeta/archivo ── #}
                 <a href="{{ url_for('mostrar_tarjeta_generica', carpeta=tarjeta.carpeta, archivo_html=tarjeta.archivo_html) }}" target="_blank">
                   <button>Abrir</button>
                 </a>
               {% endif %}
+
             </div>
           </div>
         {% endfor %}

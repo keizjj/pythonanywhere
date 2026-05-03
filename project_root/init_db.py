@@ -1,4 +1,5 @@
-from app import app, db, bcrypt
+from app import app
+from extensions import db, bcrypt
 from models import Usuario, Grupo, Tarjeta
 
 
@@ -15,7 +16,8 @@ def create_initial_data():
     tarjeta1 = Tarjeta(
         nombre='Tarjeta Ejemplo',
         imagen_url='/blueprints/Corazon3DV/Corazon3DV.jpg',  # Ruta absoluta o relativa según config de Flask
-        carpeta='Corazon3DV'  # Nombre carpeta blueprint
+        carpeta='Corazon3DV',  # Nombre carpeta blueprint
+        archivo_html='Corazon3DV.html'
     )
 
     # Relacionamos admin con el grupo y grupo con la tarjeta

@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{{ nombre_chat }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: url("{{ url_for('static', filename='images/hoober.jpg') }}") no-repeat center center / cover fixed;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      color: #eee;
+    }
+
+    /* ── Layout principal ── */
+    .room-wrapper {
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* ── Header ── */
+    .room-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1.1rem;
+      background: rgba(0,0,0,0.45);
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+    .btn-back {
+      background: none;
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 0.4rem;
+      transition: background 0.15s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.1); }
+    .room-avatar {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: rgba(98,150,119,0.5);
+      border: 1px solid rgba(255,255,255,0.15);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.95rem; font-weight: 600; color: #fff;
+      text-transform: uppercase; flex-shrink: 0;
+    }
+    .room-avatar.grupo { background: rgba(120,80,180,0.5); }
+    .room-title { font-size: 1rem; font-weight: 600; color: #f0f0f0; }
+    .room-subtitle { font-size: 0.72rem; color: #888; }
+
+    /* ── Área de mensajes ── */
+    .messages-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 1rem 1rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+      scroll-behavior: smooth;
+    }
+
+    /* Fecha separadora */
+    .date-separator {
+      text-align: center;
+      font-size: 0.7rem;
+      color: #777;
+      margin: 0.6rem 0;
+      position: relative;
+    }
+    .date-separator::before, .date-separator::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 30%;
+      height: 1px;
+      background: rgba(255,255,255,0.1);
+    }
+    .date-separator::before { left: 0; }
+    .date-separator::after  { right: 0; }
+
+    /* Burbuja de mensaje */
+    .msg-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.4rem;
+    }
+    .msg-row.mine    { justify-content: flex-end; }
+    .msg-row.theirs  { justify-content: flex-start; }
+
+    .bubble {
+      max-width: 72%;
+      padding: 0.55rem 0.8rem;
+      border-radius: 1rem;
+      position: relative;
+      word-break: break-word;
+      line-height: 1.45;
+    }
+    .mine  .bubble {
+      background: rgba(98,150,119,0.55);
+      border: 1px solid rgba(98,150,119,0.7);
+      border-bottom-right-radius: 0.2rem;
+    }
+    .theirs .bubble {
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-bottom-left-radius: 0.2rem;
+    }
+
+    .bubble-sender {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #9ec9b0;
+      margin-bottom: 0.2rem;
+    }
+    .bubble-text   { font-size: 0.88rem; color: #f0f0f0; }
+    .bubble-meta   {
+      display: flex;
+      align-items: center;
+      gap: 0.3rem;
+      justify-content: flex-end;
+      margin-top: 0.25rem;
+    }
+    .bubble-time   { font-size: 0.65rem; color: rgba(255,255,255,0.5); }
+    .edited-tag    { font-size: 0.62rem; color: rgba(255,255,255,0.4); font-style: italic; }
+
+    /* Menú contextual */
+    .msg-menu-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.35);
+      cursor: pointer;
+      font-size: 0.85rem;
+      padding: 0.1rem 0.4rem;
+      opacity: 0;
+      transition: opacity 0.15s;
+      align-self: center;
+    }
+    .msg-row:hover .msg-menu-btn { opacity: 1; }
+    /* En móvil/tablet no hay hover: mostrar siempre el botón */
+    @media (hover: none) {
+      .msg-menu-btn { opacity: 1; }
+    }
+
+    .ctx-menu {
+      display: none;
+      position: fixed;
+      background: rgba(25,25,25,0.97);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 0.6rem;
+      overflow: hidden;
+      z-index: 200;
+      min-width: 140px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+    }
+    .ctx-menu button {
+      display: block;
+      width: 100%;
+      background: none;
+      border: none;
+      color: #ddd;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.82rem;
+      padding: 0.6rem 1rem;
+      text-align: left;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ctx-menu button:hover { background: rgba(255,255,255,0.08); }
+    .ctx-menu button.danger { color: #f97; }
+
+    /* ── Input area ── */
+    .input-area {
+      display: flex;
+      align-items: flex-end;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: rgba(0,0,0,0.4);
+      border-top: 1px solid rgba(255,255,255,0.1);
+      flex-shrink: 0;
+    }
+    .msg-input {
+      flex: 1;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 1.2rem;
+      color: #eee;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      max-height: 120px;
+      min-height: 40px;
+      outline: none;
+      overflow-y: auto;
+      padding: 0.55rem 1rem;
+      resize: none;
+      transition: border-color 0.2s;
+    }
+    .msg-input:focus { border-color: rgba(98,150,119,0.7); }
+    .msg-input::placeholder { color: #777; }
+    .btn-send {
+      background: rgba(98,150,119,0.8);
+      border: 1px solid rgba(98,150,119,1);
+      border-radius: 50%;
+      color: #fff;
+      cursor: pointer;
+      font-size: 1rem;
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.2s;
+    }
+    .btn-send:hover { background: rgba(98,150,119,1); }
+
+    /* Banner de edición activa */
+    .edit-banner {
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(98,150,119,0.2);
+      border-top: 1px solid rgba(98,150,119,0.4);
+      padding: 0.4rem 1rem;
+      font-size: 0.78rem;
+      color: #9ec9b0;
+      flex-shrink: 0;
+    }
+    .edit-banner.visible { display: flex; }
+    .edit-banner button { background: none; border: none; color: #9ec9b0; cursor: pointer; font-size: 0.9rem; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 5rem; left: 50%; transform: translateX(-50%) translateY(80px); background: rgba(30,30,30,0.95); border: 1px solid rgba(255,255,255,0.15); border-radius: 0.6rem; color: #eee; font-size: 0.82rem; padding: 0.55rem 1rem; z-index: 300; transition: transform 0.3s ease; pointer-events: none; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
+    .toast.error { border-color: rgba(220,80,80,0.6); color: #f99; }
+    .toast.success { border-color: rgba(98,150,119,0.8); color: #8dbb9e; }
+
+    /* Modal editar */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 250; align-items: center; justify-content: center; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: rgba(20,20,20,0.97); border: 1px solid rgba(255,255,255,0.15); border-radius: 1rem; padding: 1.4rem; width: min(400px, 92vw); box-shadow: 0 12px 40px rgba(0,0,0,0.7); }
+    .modal h2 { font-size: 1rem; font-weight: 600; color: #f0f0f0; margin-bottom: 0.8rem; }
+    .modal textarea { width: 100%; padding: 0.6rem 0.75rem; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 0.5rem; color: #eee; font-family: 'Poppins', sans-serif; font-size: 0.88rem; min-height: 80px; resize: vertical; }
+    .modal-actions { display: flex; gap: 0.6rem; justify-content: flex-end; margin-top: 1rem; }
+    .btn-cancel { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); border-radius: 0.5rem; color: #ccc; cursor: pointer; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-family: 'Poppins', sans-serif; }
+    .btn-confirm { background: rgba(98,150,119,0.8); border: 1px solid rgba(98,150,119,1); border-radius: 0.5rem; color: #fff; cursor: pointer; padding: 0.45rem 0.9rem; font-size: 0.82rem; font-weight: 600; font-family: 'Poppins', sans-serif; }
+  </style>
+</head>
+<body>
+<div class="room-wrapper">
+
+  <!-- Header -->
+  <div class="room-header">
+    <a href="{{ url_for('chat.index') }}" class="btn-back">←</a>
+    <div class="room-avatar {{ 'grupo' if chat.es_grupo else '' }}">
+      {{ nombre_chat[0] | upper if nombre_chat else '?' }}
+    </div>
+    <div>
+      <div class="room-title">{{ nombre_chat }}</div>
+      <div class="room-subtitle">{{ '👥 Grupo' if chat.es_grupo else '🔒 Chat privado' }}</div>
+    </div>
+  </div>
+
+  <!-- Mensajes -->
+  <div class="messages-area" id="messagesArea">
+    {% for msg in mensajes %}
+    <div class="msg-row {{ 'mine' if msg.sender_id == current_user_id else 'theirs' }}"
+        id="msg-{{ msg.id }}"
+        data-id="{{ msg.id }}"
+        data-sender="{{ msg.sender_id }}"
+        data-created="{{ msg.created_at }}"
+        data-content="{{ msg.content | e }}">
+
+      {% if msg.sender_id != current_user_id %}
+        <button class="msg-menu-btn" onclick="openCtxMenu(event, {{ msg.id }}, false)">⋮</button>
+      {% endif %}
+
+      <div class="bubble">
+        {% if chat.es_grupo and msg.sender_id != current_user_id %}
+          <div class="bubble-sender">{{ msg.sender }}</div>
+        {% endif %}
+        <div class="bubble-text" id="text-{{ msg.id }}">{{ msg.content | e }}</div>
+        <div class="bubble-meta">
+          {% if msg.is_edited %}<span class="edited-tag">editado</span>{% endif %}
+          <span class="bubble-time">{{ msg.created_at[11:16] }}</span>
+        </div>
+      </div>
+
+      {% if msg.sender_id == current_user_id %}
+        <button class="msg-menu-btn" onclick="openCtxMenu(event, {{ msg.id }}, true)">⋮</button>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Banner de edición activa -->
+  <div class="edit-banner" id="editBanner">
+    <span>✏️ Editando mensaje…</span>
+    <button onclick="cancelarEdicion()">✕</button>
+  </div>
+
+  <!-- Input -->
+  <div class="input-area">
+    <textarea class="msg-input" id="msgInput" placeholder="Escribe un mensaje…" rows="1"
+      onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    <button class="btn-send" onclick="enviarMensaje()" title="Enviar">➤</button>
+  </div>
+
+</div>
+
+<!-- Menú contextual flotante -->
+<div class="ctx-menu" id="ctxMenu">
+  <button id="ctxEdit"   onclick="iniciarEdicion()">✏️ Editar</button>
+  <button id="ctxDelete" onclick="eliminarMensaje()" class="danger">🗑 Eliminar para mí</button>
+</div>
+
+<!-- Modal edición -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <h2>Editar mensaje</h2>
+    <textarea id="editContent" maxlength="2000"></textarea>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="cerrarEditModal()">Cancelar</button>
+      <button class="btn-confirm" onclick="guardarEdicion()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Config ──────────────────────────────────────────────
+  const CHAT_ID      = {{ chat.id }};
+  const MY_ID        = {{ current_user_id }};
+  const EDIT_WINDOW  = {{ edit_window }};   // segundos
+  const INTERVALS    = [3000, 6000, 12000, 24000];
+
+  let lastId      = {{ mensajes[-1].id if mensajes else 0 }};
+  let lastPoll    = Date.now() / 1000;
+  let emptyStreak = 0;
+  let pollTimer   = null;
+
+  // Estado de edición / menú
+  let ctxMsgId   = null;
+  let ctxIsMine  = false;
+  let editMsgId  = null;
+
+  // ── Toast ────────────────────────────────────────────────
+  function showToast(msg, tipo = 'info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className   = 'toast ' + tipo;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3200);
+  }
+
+  // ── Auto-resize textarea ─────────────────────────────────
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  // ── Scroll al fondo ──────────────────────────────────────
+  function scrollBottom() {
+    const area = document.getElementById('messagesArea');
+    area.scrollTop = area.scrollHeight;
+  }
+  scrollBottom();
+
+  // ── Formatear hora HH:MM desde ISO ──────────────────────
+  function fmtTime(iso) {
+    return iso ? iso.substring(11, 16) : '';
+  }
+
+  // ── Añadir burbuja al DOM ────────────────────────────────
+  function appendBubble(msg) {
+    const isMine = msg.sender_id === MY_ID;
+    const area   = document.getElementById('messagesArea');
+
+    const row = document.createElement('div');
+    row.className = 'msg-row ' + (isMine ? 'mine' : 'theirs');
+    row.id        = 'msg-' + msg.id;
+    row.dataset.id      = msg.id;
+    row.dataset.sender  = msg.sender_id;
+    row.dataset.created = msg.created_at;
+    row.dataset.content = msg.content;
+
+    const editedTag = msg.is_edited ? '<span class="edited-tag">editado</span>' : '';
+    const senderTag = (!isMine && {{ 'true' if chat.es_grupo else 'false' }})
+      ? `<div class="bubble-sender">${msg.sender}</div>` : '';
+
+    row.innerHTML = `
+      ${!isMine ? `<button class="msg-menu-btn" onclick="openCtxMenu(event,${msg.id},false)">⋮</button>` : ''}
+      <div class="bubble">
+        ${senderTag}
+        <div class="bubble-text" id="text-${msg.id}">${escapeHtml(msg.content)}</div>
+        <div class="bubble-meta">
+          ${editedTag}
+          <span class="bubble-time">${fmtTime(msg.created_at)}</span>
+        </div>
+      </div>
+      ${isMine ? `<button class="msg-menu-btn" onclick="openCtxMenu(event,${msg.id},true)">⋮</button>` : ''}
+    `;
+
+    area.appendChild(row);
+    scrollBottom();
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // ── Actualizar burbuja editada ───────────────────────────
+  function updateBubble(msg) {
+    const row = document.getElementById('msg-' + msg.id);
+    if (!row) return;
+    const textEl = document.getElementById('text-' + msg.id);
+    if (textEl) textEl.textContent = msg.content;
+    row.dataset.content = msg.content;
+
+    // Añadir "(editado)" si no está ya
+    const meta = row.querySelector('.bubble-meta');
+    if (meta && !meta.querySelector('.edited-tag')) {
+      const tag = document.createElement('span');
+      tag.className   = 'edited-tag';
+      tag.textContent = 'editado';
+      meta.prepend(tag);
+    }
+  }
+
+  // ── Eliminar burbuja del DOM ─────────────────────────────
+  function removeBubble(msgId) {
+    const row = document.getElementById('msg-' + msgId);
+    if (row) row.remove();
+  }
+
+  // ── POLLING ──────────────────────────────────────────────
+  async function poll() {
+    try {
+      const url  = `/chat/${CHAT_ID}/mensajes?last_id=${lastId}&last_poll=${lastPoll}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+
+      if (data.new && data.new.length > 0) {
+        data.new.forEach(m => {
+          if (!document.getElementById('msg-' + m.id)) appendBubble(m);
+          lastId = Math.max(lastId, m.id);
+        });
+        emptyStreak = 0;
+      } else {
+        emptyStreak = Math.min(emptyStreak + 1, INTERVALS.length - 1);
+      }
+
+      if (data.edited && data.edited.length > 0) {
+        data.edited.forEach(m => updateBubble(m));
+      }
+
+      if (data.server_time) lastPoll = data.server_time;
+
+    } catch (e) {
+      emptyStreak = Math.min(emptyStreak + 1, INTERVALS.length - 1);
+    }
+
+    pollTimer = setTimeout(poll, INTERVALS[emptyStreak]);
+  }
+
+  // Iniciar polling
+  pollTimer = setTimeout(poll, INTERVALS[0]);
+
+  // Pausar polling cuando la pestaña no está visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      clearTimeout(pollTimer);
+    } else {
+      emptyStreak = 0;
+      pollTimer = setTimeout(poll, INTERVALS[0]);
+    }
+  });
+
+  // ── ENVIAR MENSAJE ────────────────────────────────────────
+  let sending = false;
+
+  async function enviarMensaje() {
+    if (sending) return;
+    const input   = document.getElementById('msgInput');
+    const content = input.value.trim();
+    if (!content) return;
+
+    sending = true;
+    const clientMsgId = crypto.randomUUID();
+
+    // Vista optimista: añadir burbuja inmediatamente
+    const now = new Date().toISOString();
+    appendBubble({ id: 'tmp-' + clientMsgId, sender_id: MY_ID, sender: 'Tú', content, created_at: now, is_edited: false });
+    input.value = '';
+    autoResize(input);
+
+    try {
+      const res  = await fetch(`/chat/${CHAT_ID}/mensajes`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ content, client_msg_id: clientMsgId })
+      });
+      const data = await res.json();
+
+      if (data.ok) {
+        // Reemplazar burbuja temporal por la real (con id definitivo)
+        const tmp = document.getElementById('msg-tmp-' + clientMsgId);
+        if (tmp) tmp.id = 'msg-' + data.mensaje.id;
+        lastId = Math.max(lastId, data.mensaje.id);
+        emptyStreak = 0;
+      } else {
+        showToast(data.error || 'Error al enviar', 'error');
+        removeBubble('tmp-' + clientMsgId);
+      }
+    } catch {
+      showToast('Error de conexión', 'error');
+      removeBubble('tmp-' + clientMsgId);
+    }
+    sending = false;
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      enviarMensaje();
+    }
+  }
+
+  // ── MENÚ CONTEXTUAL ───────────────────────────────────────
+  function openCtxMenu(e, msgId, isMine) {
+    e.stopPropagation();
+    ctxMsgId  = msgId;
+    ctxIsMine = isMine;
+
+    const menu    = document.getElementById('ctxMenu');
+    const editBtn = document.getElementById('ctxEdit');
+
+    // Mostrar "Editar" solo si es mío y dentro de la ventana de tiempo
+    if (isMine) {
+      const row     = document.getElementById('msg-' + msgId);
+      const created = row ? new Date(row.dataset.created) : null;
+      const age     = created ? (Date.now() - created.getTime()) / 1000 : 9999;
+      editBtn.style.display = (age < EDIT_WINDOW) ? 'block' : 'none';
+    } else {
+      editBtn.style.display = 'none';
+    }
+
+    menu.style.display = 'block';
+    menu.style.left = Math.min(e.clientX, window.innerWidth  - 160) + 'px';
+    menu.style.top  = Math.min(e.clientY, window.innerHeight - 100) + 'px';
+  }
+
+  document.addEventListener('click', () => {
+    document.getElementById('ctxMenu').style.display = 'none';
+  });
+  // Evitar que un click dentro del menú lo cierre inmediatamente
+  document.getElementById('ctxMenu').addEventListener('click', (e) => e.stopPropagation());
+
+  // ── EDITAR ────────────────────────────────────────────────
+  function iniciarEdicion() {
+    const row = document.getElementById('msg-' + ctxMsgId);
+    if (!row) return;
+    editMsgId = ctxMsgId;
+
+    document.getElementById('editContent').value = row.dataset.content || '';
+    document.getElementById('editModal').classList.add('open');
+  }
+
+  function cerrarEditModal() {
+    document.getElementById('editModal').classList.remove('open');
+    editMsgId = null;
+  }
+
+  async function guardarEdicion() {
+    const content = document.getElementById('editContent').value.trim();
+    if (!content) { showToast('El mensaje no puede estar vacío', 'error'); return; }
+
+    const res  = await fetch(`/chat/mensaje/${editMsgId}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ content })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      updateBubble(data.mensaje);
+      cerrarEditModal();
+    } else {
+      showToast(data.error || 'No se pudo editar', 'error');
+    }
+  }
+
+  // ── ELIMINAR PARA MÍ ─────────────────────────────────────
+  async function eliminarMensaje() {
+    if (!ctxMsgId) return;
+    const res  = await fetch(`/chat/mensaje/${ctxMsgId}/eliminar`, { method: 'POST' });
+    const data = await res.json();
+
+    if (data.ok) {
+      removeBubble(ctxMsgId);
+      ctxMsgId = null;
+    } else {
+      showToast('No se pudo eliminar', 'error');
+    }
+  }
+
+  // ── FIJAR / DESFIJAR (accesible desde el header si se quisiera) ──
+  async function togglePin(fijar) {
+    const url = `/chat/${CHAT_ID}/${fijar ? 'fijar' : 'desfijar'}`;
+    const res  = await fetch(url, { method: 'POST' });
+    const data = await res.json();
+    if (res.status === 409) {
+      showToast(data.detail, 'error');
+    } else if (data.ok) {
+      showToast(fijar ? 'Chat fijado' : 'Chat desfijado', 'success');
+    }
+  }
+
+  function cancelarEdicion() {
+    document.getElementById('editBanner').classList.remove('visible');
+    editMsgId = null;
+    document.getElementById('msgInput').value = '';
+    autoResize(document.getElementById('msgInput'));
+  }
+</script>
+</body>
+</html>

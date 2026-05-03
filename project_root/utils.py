@@ -1,8 +1,8 @@
-import os
 import logging
-from app import db, bcrypt
-from models import Usuario, Grupo, Tarjeta
 import os
+
+from extensions import db, bcrypt
+from models import Usuario, Grupo, Tarjeta
 
 logging.basicConfig(level=logging.INFO)
 
